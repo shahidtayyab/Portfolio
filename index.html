@@ -1199,6 +1199,8 @@ body.light .ty-btn{ color:#fff; }
   window.addEventListener('resize',()=>{if(window.innerWidth>700)closeMenu();});
 
   // ---------- Contact form ----------
+  // Paste your free Web3Forms Access Key here (get it at https://web3forms.com). Leave '' to use FormSubmit.
+  const WEB3FORMS_KEY='299e24aa-a5fb-4333-81b5-2201247c4df7';
   const contactForm=document.getElementById('contactForm');
   const successPopup=document.getElementById('successPopup');
   const successClose=document.getElementById('successClose');
@@ -1229,19 +1231,37 @@ body.light .ty-btn{ color:#fff; }
     if(subj) subj.value='New Portfolio Message from '+document.getElementById('cName').value.trim();
 
     try{
-      const response=await fetch(contactForm.action,{
-        method:'POST',
-        body:new FormData(contactForm),
-        headers:{'Accept':'application/json'}
-      });
+      const g=id=>document.getElementById(id).value.trim();
+      let endpoint, payload;
+
+      if(WEB3FORMS_KEY){
+        // Web3Forms: works from localhost, GitHub Pages and any domain (no activation email needed).
+        endpoint='https://api.web3forms.com/submit';
+        payload=new FormData();
+        payload.append('access_key',WEB3FORMS_KEY);
+        payload.append('subject','New Portfolio Message from '+g('cName'));
+        payload.append('from_name','Portfolio Contact Form');
+        payload.append('name',g('cName'));
+        payload.append('email',g('cEmail'));
+        payload.append('phone',g('cPhone'));
+        payload.append('designation',g('cDesignation'));
+        payload.append('company',g('cCompany'));
+        payload.append('message',g('cMsg'));
+        payload.append('botcheck','');
+      }else{
+        endpoint=contactForm.action;               // FormSubmit
+        payload=new FormData(contactForm);
+      }
+
+      const response=await fetch(endpoint,{method:'POST',body:payload,headers:{'Accept':'application/json'}});
 
       let result={};
       try{ result=await response.json(); }catch(_){}
 
-      // Only a real success from FormSubmit counts. (Old code treated ANY reply with a message as success.)
+      // Only a real success counts.
       const ok = response.ok && (result.success===true || result.success==='true');
       if(!ok){
-        console.error('FormSubmit response:', response.status, result);
+        console.error('Form service response:', response.status, result);
         throw new Error(result.message || ('HTTP '+response.status));
       }
 
@@ -1256,18 +1276,18 @@ body.light .ty-btn{ color:#fff; }
       const msg=String(error && error.message || error);
       let why;
       if(location.protocol==='file:'){
-        why='Yeh page computer/phone se seedha (file) khola gaya hai — FormSubmit sirf hosted website par kaam karta hai.';
+        why='This page was opened directly as a file. Please open it from a web server (Live Server or your hosted link).';
       }else if(/activat/i.test(msg)){
-        why='FormSubmit ka form abhi activate nahi hua. Gmail mein "Activate Form" wali email par click karein.';
+        why='The form is not activated yet. Please click "Activate Form" in the email sent to the owner\'s inbox.';
       }else if(/failed to fetch|networkerror|load failed/i.test(msg)){
-        why='Internet ya browser ne request block kar di (network / ad-blocker).';
+        why='The request was blocked or could not reach the form service (network, VPN or ad-blocker).';
       }else{
         why='Reason: '+msg;
       }
       formNote.classList.remove('success');
       formNote.innerHTML='';
       const t=document.createElement('div');
-      t.textContent='Message send nahi ho saka. '+why;
+      t.textContent='Sorry, your message could not be sent. '+why;
       formNote.appendChild(t);
 
       // Guaranteed fallback: open the visitor's email app with everything pre-filled.
